@@ -1,6 +1,6 @@
 [package]
 name = "substrate-ai"
-version = "2.0.1"
+version = "2.0.2"
 authors = ["maxtnuk <maxtnuk@gmail.com>"]
 description = "test module"
 license = "MIT"
