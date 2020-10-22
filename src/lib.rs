@@ -1,6 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-use engine;
 
+#[macro_use]
+extern crate alloc;
 /// Edit this file to define custom logic or remove it if it is not needed.
 /// Learn more about FRAME and the core library of Substrate FRAME pallets:
 /// https://substrate.dev/docs/en/knowledgebase/runtime/frame
@@ -20,11 +21,25 @@ use engine::activation::{
 	SoftMax,
 	SoftPlus	
 };
-use frame_support::sp_runtime::FixedI64;
+use engine::activation::{
+	ActivationArgu,
+	ActivationKind,
+	Activation
+};
+
+use engine::cost::{
+	CostFunction,
+	CostFunctions,
+	CostFunctionArgu
+};
+
+
 use engine::sample::Sample;
 use engine::matrix::Matrix;
 
+use core::str;
 
+pub mod engine;
 
 #[cfg(test)]
 mod mock;
@@ -32,49 +47,50 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+use crate::alloc::vec::Vec;
 
 pub trait Trait: frame_system::Trait {
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
 
-type NeuralKey<AcId> = (AcId,String); 
+type NeuralKey<AcId> = (AcId,Vec<u8>); 
 
 #[derive(Encode, Decode,Default, Clone, PartialEq,Hash)]
 pub struct NeuralStruct {
-	name: String,
-	neural_network: Option<String>
+	name: Vec<u8>,
+	neural_network: Option<Vec<u8>>
 }
 
 impl NeuralStruct{
-	pub fn new(name: String)-> Self{
+	pub fn new(name: Vec<u8>)-> Self{
 		NeuralStruct{
 			name: name,
 			neural_network: None
 		}
 	}
-	pub fn get_model(&self) -> Result<NeuralNetwork,String>{
-		if let Some(ref nn)=self.neural_network{
-			NeuralNetwork::get_neural_from_str(nn.clone())
+	pub fn get_model(&self) -> Result<NeuralNetwork,Vec<u8>>{
+		if let Some(nn)=self.neural_network.clone(){
+			NeuralNetwork::get_neural_from_str(nn)
 		}else{
-			Err("No Model".to_string())
+			Err("No Model".as_bytes().to_vec())
 		}
 	} 
 	pub fn add_layers(&mut self,layer: NeuralLayer){
 		if self.neural_network.is_none(){
-			self.neural_network=Some(NeuralNetwork::new().to_string());
+			self.neural_network=Some(NeuralNetwork::new().get_serial());
 		}
 		if let Ok(mut net) = self.get_model(){
 			net.add_layer(layer);
-			self.neural_network=Some(net.to_string());
+			self.neural_network=Some(net.get_serial());
 		}	
 	}
-	pub fn get_model_string(&self)->String{
-		self.neural_network.as_ref().unwrap_or(&"".to_owned()).to_string()
+	pub fn get_model_string(&self)->Vec<u8>{
+		self.neural_network.clone().unwrap_or(vec![0])
 	}
 	pub fn train(&mut self,samples: Vec<Sample> ,epoch: i32, learning_rate: f64){
 		let mut nn =self.get_model().unwrap();
 		nn.train(samples,epoch,learning_rate,None);
-		self.neural_network=Some(nn.to_string());
+		self.neural_network=Some(nn.get_serial());
 	}
 	pub fn run(&self, samples: Sample) -> Matrix{
 		let nn =self.get_model().unwrap();
@@ -84,19 +100,19 @@ impl NeuralStruct{
 
 decl_storage! {
 	trait Store for Module<T: Trait> as TemplateModule{
-		NeuralContainer get(fn neural_container): map hasher(blake2_128_concat) (T::AccountId,String) => NeuralStruct;
-		DataContainer get(fn data_container): map hasher(blake2_128_concat) (T::AccountId,String) => Vec<String>;
+		NeuralContainer get(fn neural_container): map hasher(blake2_128_concat) (T::AccountId,Vec<u8>) => NeuralStruct;
+		DataContainer get(fn data_container): map hasher(blake2_128_concat) (T::AccountId,Vec<u8>) => Vec<Vec<u8>>;
 	}
 }
 
 decl_event!(
 	pub enum Event<T> where AccountId = <T as frame_system::Trait>::AccountId {
 		MakeNewModel(NeuralKey<AccountId>),
-		AddLayer(NeuralKey<AccountId>,String),
-		UpdateModel(NeuralKey<AccountId>,String),
+		AddLayer(NeuralKey<AccountId>,Vec<u8>),
+		UpdateModel(NeuralKey<AccountId>,Vec<u8>),
 		AddDataSet(NeuralKey<AccountId>),
 		TrainComplete(NeuralKey<AccountId>),
-		RunResult(NeuralKey<AccountId>,String),
+		RunResult(NeuralKey<AccountId>,Vec<u8>),
 	}
 );
 
@@ -111,6 +127,17 @@ decl_error! {
 	}
 }
 
+fn read_input_data(data: Vec<u8>) ->Vec<Vec<f64>> {
+	let s = str::from_utf8(data.as_slice()).unwrap();
+	let lines = s.split('\n');
+	let mut result = Vec::new(); 
+	for l in lines{
+		let d = l.split(',').map(|s| s.parse().unwrap()).collect();
+		result.push(d);
+	}
+	result
+}
+
 decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 		// Errors must be initialized if they are used by the pallet.
@@ -121,7 +148,7 @@ decl_module! {
 		
 		// generate new model
 		#[weight = 1_100_000_000]
-		pub fn make_new_neural(origin, name: String) -> dispatch::DispatchResult {
+		pub fn make_new_neural(origin, name: Vec<u8>) -> dispatch::DispatchResult {
 			let who = ensure_signed(origin)?;
 			
 			let ns = NeuralStruct::new(name.clone()); 
@@ -132,7 +159,7 @@ decl_module! {
 		
 		//add layer to model
 		#[weight = 2_500_000_000]
-		pub fn add_layer(origin,name: String,size: (u32,u32),layer_type: String, extra_parameter: String) -> dispatch::DispatchResult {
+		pub fn add_layer(origin,name: Vec<u8>,size: (u32,u32),layer_type: Vec<u8>, extra_parameter: u64) -> dispatch::DispatchResult {
 			let who = ensure_signed(origin)?;
 			let (in_s,out_s) = (size.0 as usize, size.1 as usize);
 
@@ -141,27 +168,27 @@ decl_module! {
 			let mut ns=<NeuralContainer<T>>::get((who.clone(),name.clone()));
 
 
-			let layer = match layer_type.as_str(){
+			let layer = match str::from_utf8(layer_type.as_slice()).unwrap(){
 				"HyperBolicTangent" =>{
-					Some(NeuralLayer::new(out_s,in_s,HyperbolicTangent::new()))
+					Some(NeuralLayer::new(out_s,in_s,ActivationArgu::new(ActivationKind::HyperbolicTangent,vec![0f64])))
 				},
 				"Sigmoid" =>{
-					Some(NeuralLayer::new(out_s,in_s,Sigmoid::new()))
+					Some(NeuralLayer::new(out_s,in_s,ActivationArgu::new(ActivationKind::Sigmoid,vec![0f64])))
 				},
 				"RectifiedLinear" =>{
-					Some(NeuralLayer::new(out_s,in_s,RectifiedLinearUnit::new()))
+					Some(NeuralLayer::new(out_s,in_s,ActivationArgu::new(ActivationKind::RectifiedLinearUnit,vec![0f64])))
 				}
 				"LeackyLelu" =>{
-					Some(NeuralLayer::new(out_s,in_s,LeakyRectifiedLinearUnit::new(extra_parameter.parse().unwrap())))
+					Some(NeuralLayer::new(out_s,in_s,ActivationArgu::new(ActivationKind::LeakyRectifiedLinearUnit,vec![extra_parameter as f64])))
 				},
 				"SoftMax" =>{
-					Some(NeuralLayer::new(out_s,in_s,SoftMax::new()))
+					Some(NeuralLayer::new(out_s,in_s,ActivationArgu::new(ActivationKind::SoftMax,vec![0f64])))
 				},
 				"SoftPlus" =>{
-					Some(NeuralLayer::new(out_s,in_s,SoftPlus::new()))
+					Some(NeuralLayer::new(out_s,in_s,ActivationArgu::new(ActivationKind::SoftPlus,vec![0f64])))
 				},
 				"Identity" =>{
-					Some(NeuralLayer::new(out_s,in_s,Identity::new()))
+					Some(NeuralLayer::new(out_s,in_s,ActivationArgu::new(ActivationKind::Identity,vec![0f64])))
 				},
 				_ =>{
 					None
@@ -178,21 +205,20 @@ decl_module! {
 
 		//add data_set for model
 		#[weight = 2_500_000_000]
-		pub fn add_data_set(origin,name: String,size: (u32,u32), csv: String ) -> dispatch::DispatchResult {
+		pub fn add_data_set(origin,name: Vec<u8>,size: (u32,u32), input_data: Vec<u8> ) -> dispatch::DispatchResult {
 			let who = ensure_signed(origin)?;
 
 			ensure!(<NeuralContainer<T>>::contains_key(&(who.clone(),name.clone())),Error::<T>::NoModel);
 
-			let mut reader = csv::Reader::from_reader(csv.as_bytes());
 			let (in_s,out_s) = (size.0 as usize, size.1 as usize);
 
 			let mut samples = Vec::new();
-			for record in reader.records() {
-				let record = record.unwrap();
-				let result:Vec<f64> = record.iter().skip(in_s).take(out_s).map(|s| s.parse().unwrap()).collect();
-				let input: Vec<f64> = record.iter().take(in_s).map(|s| s.parse().unwrap()).collect();
+			let datas = read_input_data(input_data);
+			for l in datas {
+				let result:Vec<f64> = l.iter().skip(in_s).take(out_s).map(|i| *i).collect();
+				let input: Vec<f64> = l.iter().take(in_s).map(|i| *i).collect();
 				let sample = Sample::new(input,result);
-				samples.push(sample.to_string());
+				samples.push(sample.get_serial());
 			}
 
 			<DataContainer<T>>::insert((who.clone(),name.clone()), samples);
@@ -203,7 +229,7 @@ decl_module! {
 
 		//train model
 		#[weight = 2_500_000_000]
-		pub fn train(origin,name: String,epoch: i32, learning_rate: FixedI64) -> dispatch::DispatchResult {
+		pub fn train(origin,name: Vec<u8>,epoch: i32, learning_rate: u32) -> dispatch::DispatchResult {
 			let who = ensure_signed(origin)?;
 
 			ensure!(<NeuralContainer<T>>::contains_key(&(who.clone(),name.clone())),Error::<T>::NoModel);
@@ -225,7 +251,7 @@ decl_module! {
 					}
 				}
 			}
-			ns.train(samples,epoch,learning_rate.to_fraction());
+			ns.train(samples,epoch,learning_rate as f64);
 			Self::deposit_event(RawEvent::TrainComplete((who.clone(),name.clone())));
 			<NeuralContainer<T>>::mutate((who.clone(),name.clone()),move |i|{
 				*i=ns
@@ -235,17 +261,18 @@ decl_module! {
 
 		//run model
 		#[weight = 2_500_000_000]
-		pub fn run(origin,name: String, csv: String) -> dispatch::DispatchResult {
+		pub fn run(origin,name: Vec<u8>, input_data: Vec<u8>) -> dispatch::DispatchResult {
 			let who = ensure_signed(origin)?;
 
 			ensure!(<NeuralContainer<T>>::contains_key(&(who.clone(),name.clone())),Error::<T>::NoModel);
 			let ns=<NeuralContainer<T>>::get((who.clone(),name.clone()));
 
 			ensure!(ns.get_model().is_ok(),Error::<T>::ModelParsingError);
-			let sample: Vec<f64>= csv.split(',').map(|s| s.parse().unwrap()).collect();
+			let sample = read_input_data(input_data);
+			let sample = sample[0].clone();
 			let result=ns.run(Sample::predict(sample));
 			
-			Self::deposit_event(RawEvent::RunResult((who.clone(),name.clone()),result.to_string()));
+			Self::deposit_event(RawEvent::RunResult((who.clone(),name.clone()),result.get_serial()));
 			Ok(())
 		}
 	}
