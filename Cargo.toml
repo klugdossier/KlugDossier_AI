@@ -2,7 +2,10 @@
 name = "substrate-ai"
 version = "2.0.0"
 authors = ["maxtnuk <maxtnuk@gmail.com>"]
+description = "test module"
+license = "MIT"
 edition = "2018"
+repository = "https://github.com/underwater-squad/substrate.ai.git"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
