@@ -3,6 +3,7 @@ use super::{
     matrix::Matrix,
     matrix::MatrixTrait,
 };
+use serde::{Serialize,Deserialize};
 use super::prelude::*;
 
 pub fn sample_input_to_matrix(sample: &Sample) -> Matrix {

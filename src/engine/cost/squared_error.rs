@@ -5,7 +5,8 @@ use super::super::{
     cost::CostFunctions,
 };
 use super::super::prelude::*;
-
+use serde::{Serialize,Deserialize};
+#[derive(Serialize,Deserialize)]
 pub struct SquaredError;
 
 impl SquaredError {

@@ -14,7 +14,9 @@ pub use self::softmax::SoftMax;
 pub use self::rectifiedlinearunit::RectifiedLinearUnit;
 pub use self::leakyrectifiedlinearunit::LeakyRectifiedLinearUnit;
 use super::prelude::*;
+use serde::{Serialize,Deserialize};
 
+#[derive(Serialize,Deserialize)]
 pub enum ActivationKind{
     Sigmoid,
     HyperbolicTangent,
@@ -24,6 +26,7 @@ pub enum ActivationKind{
     LeakyRectifiedLinearUnit,
     Identity
 }
+#[derive(Serialize,Deserialize)]
 pub struct ActivationArgu{
     kind: ActivationKind,
     argu: Vec<f64>

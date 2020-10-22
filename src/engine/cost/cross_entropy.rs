@@ -7,6 +7,9 @@ use super::super::{
 use core::f64;
 use super::super::prelude::*;
 
+use serde::{Serialize,Deserialize};
+
+#[derive(Serialize,Deserialize)]
 pub struct CrossEntropy;
 
 impl CrossEntropy {

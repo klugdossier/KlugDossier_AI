@@ -1,6 +1,7 @@
 use super::prelude::*;
+use serde::{Serialize,Deserialize};
 
-#[derive(Debug,PartialEq)]
+#[derive(Serialize,Deserialize,Debug,PartialEq)]
 pub struct Sample {
     pub inputs: Vec<f64>,
     pub outputs: Option<Vec<f64>>,

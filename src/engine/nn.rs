@@ -9,11 +9,12 @@ use super::{
     utils::sample_input_to_matrix,
     utils::sample_output_to_matrix,
 };
-
+use serde::{Serialize,Deserialize};
 use super::prelude::*;
 
 
 /// Represents a Neural Network with layers, inputs and outputs
+#[derive(Serialize,Deserialize)]
 pub struct NeuralNetwork {
     layers: Vec<NeuralLayer>,
     cost_function: CostFunctionArgu,

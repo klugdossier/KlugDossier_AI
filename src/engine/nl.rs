@@ -6,7 +6,9 @@ use super::{
     activation::ActivationArgu
 };
 use super::prelude::*;
+use serde::{Serialize,Deserialize};
 /// Represents a neural layer with its weights
+#[derive(Serialize,Deserialize)]
 pub struct NeuralLayer {
     pub activation: ActivationArgu,
     inputs: usize,

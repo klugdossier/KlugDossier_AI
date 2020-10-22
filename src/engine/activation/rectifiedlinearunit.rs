@@ -1,7 +1,8 @@
 use super::Activation;
 use super::super::prelude::*;
+use serde::{Serialize,Deserialize};
 
-#[derive(Copy,Clone)]
+#[derive(Serialize,Deserialize,Copy,Clone)]
 pub struct RectifiedLinearUnit;
 
 impl RectifiedLinearUnit {

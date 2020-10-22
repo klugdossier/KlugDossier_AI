@@ -1,8 +1,9 @@
 use core::f64;
 use super::prelude::*;
 // use rand::rngs::OsRng;
+use serde::{Serialize,Deserialize};
 
-#[derive(Debug, Clone,PartialEq)]
+#[derive(Serialize,Deserialize,Debug, Clone,PartialEq)]
 pub struct Matrix(Vec<Vec<f64>>);
 
 pub trait MatrixTrait {

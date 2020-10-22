@@ -2,16 +2,19 @@ pub mod squared_error;
 pub mod cross_entropy;
 use super::prelude::*;
 
+use serde::{Deserialize,Serialize};
 
 use super::matrix::Matrix;
 
 /// Available cost functions
 /// The only reason for having this enum is to `match` it in `NeuralNetwork`
+#[derive(Deserialize,Serialize)]
 pub enum CostFunctions {
     SquaredError,
     CrossEntropy,
 }
 
+#[derive(Serialize,Deserialize)]
 pub struct CostFunctionArgu {
     kind: CostFunctions,
     argu: Vec<f64>
