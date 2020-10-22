@@ -31,6 +31,8 @@ sp-runtime = { default-features = false, version = '2.0.0' }
 default = ['std']
 std = [
     'codec/std',
+    'serde/std',
+    'postcard/use-std',
     'frame-support/std',
     'frame-system/std',
 ]
