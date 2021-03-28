@@ -1,1 +1,1 @@
-# substrate AI module
+# PolkaDossier AI module
